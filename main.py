@@ -191,24 +191,5 @@ def task_text(message: telebot.types.Message):
         text = 'Прости, я еще не научился вести диалог, но, возможно, и это я смогу делать :)'
         bot.reply_to(message, text)
         
-    
-# @bot.message_handler(content_types= ['text']) # главная функция работы бота
-# def convert(message: telebot.types.Message):
-#     try:
-#         values = message.text.split(' ')
-
-#         if len(values) != 3:
-#             raise e.APIException('Некорректые параметры, введите корректный запрос.')
-            
-#         quote, base, amount = values
-#         total_base = e.CurrencyConverter.get_price(quote, base, amount)
-#     except e.APIException as n:
-#         bot.reply_to(message, f'Ошибка пользователя:\n{n}')
-#     except Exception as n:
-#         bot.reply_to(message, f'Не удалось обработать команду:\n{n}')
-#     else:
-#         text = f'Цена {amount} {quote} в {base} - {total_base}'
-#         bot.send_message(message.chat.id, text)
-
 if __name__ == '__main__':
     bot.infinity_polling()
