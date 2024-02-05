@@ -27,11 +27,10 @@ def start(message: telebot.types.Message):
 Я - чат-бот помощник, который запишет все твои дела, которые ты мне отправишь.\n\
 Если не знаешь с чего начать, то воспользуйся командой /help чтобы посмотреть все доступные команды.'
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    btn1 = types.KeyboardButton('Поздороваться')
-    btn2 = types.KeyboardButton('Создать задачу')
-    btn3 = types.KeyboardButton('Посмотреть задачи')
-    btn4 = types.KeyboardButton('Помощь')
-    markup.add(btn1, btn2, btn3, btn4)
+    btn1 = types.KeyboardButton('Создать задачу')
+    btn2 = types.KeyboardButton('Посмотреть задачи')
+    btn3 = types.KeyboardButton('Помощь')
+    markup.add(btn1, btn2, btn3)
     bot.reply_to(message, text, reply_markup=markup)
 
 @bot.message_handler(commands= ['add_task']) # команда добавления задачи в базу данных
@@ -44,28 +43,47 @@ def add_task(message: telebot.types.Message):
 
 def add_task_time(message: telebot.types.Message):
     user_time = message.text
+    # conn = sqlite3.connect('db/database.db')
     # Проверяем корректность пользовательского ввода времени
     try:
-        time_obj = datetime.datetime.strptime(user_time, '%H:%M')
-        time = time_obj.time().strftime('%H:%M')
-        conn = sqlite3.connect('db/database.db') # подключаемся к базе 
-        sql = 'INSERT INTO tasks (userid, time, task_headline, task_text) values(?, ?, ?, ?)' # подготавливаем запрос 
-        data = [ (str(message.from_user.id), str(time), str('.'), str('.')) ] # формируем данные для запроса 
-        # добавляем с помощью запроса данные 
-        with conn: 
-            conn.executemany(sql, data) 
-        text = f'Отлично, время {time}, дальше введите заголовок задачи.'
-        msg = bot.send_message(message.chat.id, text)
-        bot.register_next_step_handler(msg, add_task_headline)
-    # Если время не соответсвует формату ЧЧ:ММ - выводим сообщение с ошибкой
+        # Проверяем верно ли указано время после ':'
+        if len(user_time.split(':')[1]) < 2:
+            text = bot.send_message(message.chat.id, text='Введите корректное время в формате ЧЧ:ММ.\n\
+Например: 9:35')
+            bot.register_next_step_handler(text, add_task_time)
+        else:
+            time_obj = datetime.datetime.strptime(user_time, '%H:%M')
+            time = time_obj.time().strftime('%H:%M')
+            conn = sqlite3.connect('db/database.db') # подключаемся к базе 
+            # добавляем с помощью запроса данные 
+            with conn:
+                data_time = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id} AND time = "{time}"')
+                fetch = data_time.fetchall()
+                if len(fetch) > 0:
+                    text = 'Это время уже занято, выберите другое.'
+                    msg = bot.send_message(message.chat.id, text)
+                    bot.register_next_step_handler(msg, add_task_time)
+                else:
+                    sql = 'INSERT INTO tasks (userid, time, task_headline, task_text) values(?, ?, ?, ?)' # подготавливаем запрос 
+                    data = [ (str(message.from_user.id), str(time), str('.'), str('.')) ] # формируем данные для запроса 
+                    conn.executemany(sql, data)
+                    text = 'Введите заголовок задачи.'
+                    msg = bot.send_message(message.chat.id, text)
+                    bot.register_next_step_handler(msg, add_task_headline)
+    except IndexError:
+            text = bot.send_message(message.chat.id, text='Введите корректное время в формате ЧЧ:ММ.\n\
+Например: 9:35')
+            bot.register_next_step_handler(text, add_task_time)
+# Если время не соответсвует формату ЧЧ:ММ - выводим сообщение с ошибкой
     except:
         text = bot.send_message(message.chat.id, text='Введите корректное время в формате ЧЧ:ММ.\n\
-Например: 09:35')
+Например: 9:35')
         bot.register_next_step_handler(text, add_task_time)
+        # bot.send_message(message.chat.id, text=time)
 
 def add_task_headline(message: telebot.types.Message):
     headline = str(message.text)
-    text = f'Хорошо, заголовок "{headline}", теперь введите описание задачи.'
+    text = 'Введите описание задачи.'
     conn = sqlite3.connect('db/database.db')
     with conn:
         data = conn.execute(f'SELECT * FROM tasks WHERE userid LIKE {message.from_user.id}')
@@ -76,7 +94,7 @@ def add_task_headline(message: telebot.types.Message):
     bot.register_next_step_handler(msg, add_task_descr)
 
 def add_task_descr(message: telebot.types.Message):
-    descr = message.text
+    descr = str(message.text)
     text = 'Отлично, задача создана!'
     conn = sqlite3.connect('db/database.db')
     with conn:
@@ -137,9 +155,19 @@ def callback_inline(call):
             global old_time
             old_time = call.message.text.split(" ")[2]
         elif call.data == 'headline':
-            bot.send_message(call.message.chat.id, text='В разработке')
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+            msg = bot.send_message(call.message.chat.id, text='Введите новый заголовок в чат.')
+            bot.register_next_step_handler(msg, edit_headline)
+            old_headline_ = call.message.text.split('\n')[2]
+            global old_headline
+            old_headline = old_headline_.split('Заголовок: ')[1]
         elif call.data == 'descr':
-            bot.send_message(call.message.chat.id, text='В разработке')
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+            msg = bot.send_message(call.message.chat.id, text='Введите новое описание в чат.')
+            bot.register_next_step_handler(msg, edit_descr)
+            old_descr_ = call.message.text.split('\n')[3]
+            global old_descr
+            old_descr = old_descr_.split('Описание: ')[1]
         elif call.data == 'back':
             markup = types.InlineKeyboardMarkup()
             btn_edit = types.InlineKeyboardButton('Редактировать✏️', callback_data = 'edit')
@@ -147,22 +175,60 @@ def callback_inline(call):
             markup.add(btn_edit, btn_complete)
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=call.message.text, reply_markup=markup)
             
+# Функция редактирования времени
 def edit_time(message: telebot.types.Message):
     new_user_time = message.text
     try: 
-        time_obj = datetime.datetime.strptime(new_user_time, '%H:%M')
-        new_time = time_obj.time().strftime('%H:%M')
-        with conn:
-            data = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id}')
-            for row in data:
-                if row[1] == old_time:
-                    conn.execute(f'UPDATE tasks SET time = REPLACE(time, "{old_time}", "{new_time}")')
-        text = 'Время успешно изменено.'
-        bot.send_message(message.chat.id, text)
+        if len(new_user_time.split(':')[1]) < 2:
+            text = bot.send_message(message.chat.id, text='Введите корректное время в формате ЧЧ:ММ.\n\
+Например: 9:35')
+            bot.register_next_step_handler(text, edit_time)
+        else:
+            time_obj = datetime.datetime.strptime(new_user_time, '%H:%M')
+            new_time = time_obj.time().strftime('%H:%M')
+            with conn:
+                data_time = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id} AND time = "{new_time}"')
+                fetch = data_time.fetchall()
+                if len(fetch) > 0:
+                    text = 'Это время уже занято, выберите другое.'
+                    msg = bot.send_message(message.chat.id, text)
+                    bot.register_next_step_handler(msg, edit_time)
+                else:
+                    data = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id}')
+                    for row in data:
+                        if row[1] == old_time:
+                            conn.execute(f'UPDATE tasks SET time = REPLACE(time, "{old_time}", "{new_time}")')
+                            text = 'Время успешно изменено.'
+                            bot.send_message(message.chat.id, text)
+    except IndexError:
+        text = bot.send_message(message.chat.id, text='Введите корректное время в формате ЧЧ:ММ.\n\
+Например: 9:35')
+        bot.register_next_step_handler(text, edit_time)
     except:
         text = bot.send_message(message.chat.id, text='Введите корректное время в формате ЧЧ:ММ.\n\
 Например: 09:35')
         bot.register_next_step_handler(text, edit_time)
+
+# Функция редактирования заголовка
+def edit_headline(message: telebot.types.Message):
+    new_headline = message.text
+    with conn:
+        data = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id}')
+        for row in data:
+            if row[2] == old_headline:
+                conn.execute(f'UPDATE tasks SET task_headline = REPLACE(task_headline, "{old_headline}", "{new_headline}")')
+    text = 'Заголовок успешно изменен.'
+    bot.send_message(message.chat.id, text)
+
+def edit_descr(message: telebot.types.Message):
+    new_descr = message.text
+    with conn:
+            data = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id}')
+            for row in data:
+                if row[3] == old_descr:
+                    conn.execute(f'UPDATE tasks SET task_text = REPLACE(task_text, "{old_descr}", "{new_descr}")')
+    text = 'Описание успешно изменено.'
+    bot.send_message(message.chat.id, text)
 
 @bot.message_handler(commands=['help'])
 def help(message: telebot.types.Message):
@@ -176,20 +242,34 @@ def help(message: telebot.types.Message):
 
 @bot.message_handler(content_types=['text'])
 def task_text(message: telebot.types.Message):
-    if message.text == 'Поздороваться':
-        text = 'Привет-привет. Какие дела добавить в список сегодня?'
-        bot.reply_to(message, text)
-    elif message.text == 'Помощь':
+    if message.text.lower() == 'помощь':
         help(message)
-    elif message.text == 'Создать задачу':
+    elif message.text.lower() == 'создать задачу':
         add_task(message)
-    elif message.text == 'Посмотреть задачи':
+    elif message.text.lower() == 'посмотреть задачи':
         show_tasks(message)
+    elif message.text.lower() == 'назад'.lower():
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        btn1 = types.KeyboardButton('Создать задачу')
+        btn2 = types.KeyboardButton('Посмотреть задачи')
+        btn3 = types.KeyboardButton('Помощь')
+        markup.add(btn1, btn2, btn3)
+        bot.reply_to(message, text='Главное меню', reply_markup=markup)
+    elif message.text.lower() == '/calendar':
+        calendar(message)
     else:
-        split_text = message.text.split()
-        user_id = message.from_user.id
         text = 'Прости, я еще не научился вести диалог, но, возможно, и это я смогу делать :)'
         bot.reply_to(message, text)
-        
+
+@bot.message_handler(commands=['calendar'])
+def calendar(message: telebot.types.Message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    january = types.KeyboardButton('Январь')
+    back = types.KeyboardButton('Назад')
+    markup.add(january, back)
+    bot.send_message(message.chat.id, text='Выберите дату', reply_markup=markup)
+
+
 if __name__ == '__main__':
-    bot.infinity_polling()
+    bot.polling(non_stop=True)
+    # bot.infinity_polling()
