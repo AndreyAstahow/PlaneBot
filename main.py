@@ -43,7 +43,6 @@ def add_task(message: telebot.types.Message):
 
 def add_task_time(message: telebot.types.Message):
     user_time = message.text
-    # conn = sqlite3.connect('db/database.db')
     # Проверяем корректность пользовательского ввода времени
     try:
         # Проверяем верно ли указано время после ':'
@@ -54,7 +53,6 @@ def add_task_time(message: telebot.types.Message):
         else:
             time_obj = datetime.datetime.strptime(user_time, '%H:%M')
             time = time_obj.time().strftime('%H:%M')
-            conn = sqlite3.connect('db/database.db') # подключаемся к базе 
             # добавляем с помощью запроса данные 
             with conn:
                 data_time = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id} AND time = "{time}"')
@@ -82,33 +80,44 @@ def add_task_time(message: telebot.types.Message):
         # bot.send_message(message.chat.id, text=time)
 
 def add_task_headline(message: telebot.types.Message):
-    headline = str(message.text)
-    text = 'Введите описание задачи.'
-    conn = sqlite3.connect('db/database.db')
+    headline = message.text
     with conn:
-        data = conn.execute(f'SELECT * FROM tasks WHERE userid LIKE {message.from_user.id}')
-        for row in data:
-            if row[:-1]:
-                conn.execute(f'UPDATE tasks SET task_headline = REPLACE(task_headline, ".", "{headline}")')
-    msg = bot.send_message(message.chat.id, text)
-    bot.register_next_step_handler(msg, add_task_descr)
+        data_headline = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id} AND task_headline = "{headline}"')
+        fetch = data_headline.fetchall()
+        if len(fetch) > 0:
+            text = 'Задача с таким заголовком уже есть. Выберите другой.'
+            msg = bot.send_message(message.chat.id, text)
+            bot.register_next_step_handler(msg, add_task_headline)
+        else:
+            data = conn.execute(f'SELECT * FROM tasks WHERE userid LIKE {message.from_user.id}')
+            for row in data:
+                if row[:-1]:
+                    conn.execute(f'UPDATE tasks SET task_headline = REPLACE(task_headline, ".", "{headline}")')
+            text = 'Введите описание задачи.'
+            msg = bot.send_message(message.chat.id, text)
+            bot.register_next_step_handler(msg, add_task_descr)
 
 def add_task_descr(message: telebot.types.Message):
-    descr = str(message.text)
-    text = 'Отлично, задача создана!'
-    conn = sqlite3.connect('db/database.db')
+    descr = message.text
     with conn:
-        data = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id}')
-        for row in data:
-            if row[:-1]:
-                conn.execute(f'UPDATE tasks SET task_text = REPLACE(task_text, ".", "{descr}")')
-    bot.send_message(message.chat.id, text)
+        data_descr = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id} AND task_text = "{descr}"')
+        fetch = data_descr.fetchall()
+        if len(fetch) > 0:
+            text = 'Задача с таким описанием уже есть. Выберите другое.'
+            msg = bot.send_message(message.chat.id, text)
+            bot.register_next_step_handler(msg, add_task_descr)
+        else:
+            data = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id}')
+            for row in data:
+                if row[:-1]:
+                    conn.execute(f'UPDATE tasks SET task_text = REPLACE(task_text, ".", "{descr}")')
+            text = 'Отлично, задача создана!'
+            bot.send_message(message.chat.id, text)
 
 @bot.message_handler(commands=['show_tasks']) # Команда просмотра списка задач
 def show_tasks(message: telebot.types.Message):
     text = 'Вот все твои актуальные задачи:'
     bot.send_message(message.chat.id, text)
-    conn = sqlite3.connect('db/database.db')
     all_tasks = '.'
     with conn:
         data = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id} ORDER BY time')
@@ -213,22 +222,36 @@ def edit_time(message: telebot.types.Message):
 def edit_headline(message: telebot.types.Message):
     new_headline = message.text
     with conn:
-        data = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id}')
-        for row in data:
-            if row[2] == old_headline:
-                conn.execute(f'UPDATE tasks SET task_headline = REPLACE(task_headline, "{old_headline}", "{new_headline}")')
-    text = 'Заголовок успешно изменен.'
-    bot.send_message(message.chat.id, text)
+        data_headline = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id} AND task_headline = "{new_headline}"')
+        fetch = data_headline.fetchall()
+        if len(fetch) > 0:
+            text = 'Задача с таким заголовком уже есть. Выберите другой.'
+            msg = bot.send_message(message.chat.id, text)
+            bot.register_next_step_handler(msg, edit_headline)
+        else:
+            data = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id}')
+            for row in data:
+                if row[2] == old_headline:
+                    conn.execute(f'UPDATE tasks SET task_headline = REPLACE(task_headline, "{old_headline}", "{new_headline}")')
+            text = 'Заголовок успешно изменен.'
+            bot.send_message(message.chat.id, text)
 
 def edit_descr(message: telebot.types.Message):
     new_descr = message.text
     with conn:
+        data_descr = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id} AND task_headline = "{new_descr}"')
+        fetch = data_descr.fetchall()
+        if len(fetch) > 0:
+            text = 'Задача с таким описанием уже есть. Выберите другое.'
+            msg = bot.send_message(message.chat.id, text)
+            bot.register_next_step_handler(msg, edit_descr)
+        else:
             data = conn.execute(f'SELECT * FROM tasks WHERE userid = {message.from_user.id}')
             for row in data:
                 if row[3] == old_descr:
                     conn.execute(f'UPDATE tasks SET task_text = REPLACE(task_text, "{old_descr}", "{new_descr}")')
-    text = 'Описание успешно изменено.'
-    bot.send_message(message.chat.id, text)
+            text = 'Описание успешно изменено.'
+            bot.send_message(message.chat.id, text)
 
 @bot.message_handler(commands=['help'])
 def help(message: telebot.types.Message):
@@ -271,5 +294,5 @@ def calendar(message: telebot.types.Message):
 
 
 if __name__ == '__main__':
-    bot.polling(non_stop=True)
-    # bot.infinity_polling()
+    # bot.polling(non_stop=True)
+    bot.infinity_polling()
