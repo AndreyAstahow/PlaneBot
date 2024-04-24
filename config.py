@@ -1,6 +1,6 @@
-TOKEN = '6521278648:AAEtTsVrm79X4SQ2xq92oFnXXjs5mJz_JCQ' # Токен бота из BotFather
+TOKEN = "put here you'r token" # Токен бота из BotFather
 
-TOKEN2 = '6758558398:AAECM9FYCE9J48hEYhGV8FUXn3fgET8wu_Q'
+
 
 months = {
     1: 'января',
