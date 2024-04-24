@@ -7,8 +7,6 @@ import calendar as cal
 from threading import Thread
 from time import sleep
 
-import extension as e # импорт файла 'extension.py' с классами ошибок
-
 from telebot import types
 from config import TOKEN, months # импорт токена из файла 'config.py'
 
@@ -1272,41 +1270,5 @@ def task_text(message: telebot.types.Message):
         bot.reply_to(message, text)
 
 
-# def schedule_checker():
-#     while True:
-#         schedule.run_pending()
-#         sleep(1)
-
-# def function_to_run():
-#     current_day = f'{datetime.datetime.now().day} {months[datetime.datetime.now().month]}'
-#     current_time_obj = datetime.datetime.now().strftime('%H:%M').split(':')
-
-#     if len(current_time_obj[0]) < 2:
-#         current_time = f'0{str(int(current_time_obj[0])+2)}:{current_time_obj[1]}'
-#     elif current_time_obj[0] == '00':
-#         current_time = f'0{str(int(current_time_obj[0])+2)}:{current_time_obj[1]}'
-#     else:
-#         hourse = int(current_time_obj[0]) + 2 
-#         if hourse == 24:
-#             current_time = f'00:{current_time_obj[1]}'
-#         elif int(current_time_obj[0]) + 2 == 25:
-#             current_time = f'01:{current_time_obj[1]}'
-#         else:
-#             current_time = f'{hourse}:{current_time_obj[1]}'
-
-#     with conn:
-#         data = conn.execute(f'SELECT * FROM tasks WHERE userid = {user_id} AND task_date = "{current_day}" AND time = "{current_time}"')
-#         for row in data:
-#             text = 'НАПОМИНАНИЕ! Через два часа у вас задача:' + '\n' + f'Дата и время: {row[1]} в {row[2]}' + '\n' + f'Заголовок: {row[3]}' + '\n' + f'Описание: {row[4]}' + '\n\n'
-#             bot.send_message(user_chat_id, text)
-
-# def start_checker():
-#     schedule.every(1).minutes.do(function_to_run)
-#     Thread(target=schedule_checker).start()
-#     bot.send_message(user_chat_id, 'Start checker func')
-
 if __name__ == '__main__':
-    # schedule.every(1).minute.do(function_to_run)
-    # schedule.every(1).minutes.do(function_to_run)
-    # Thread(target=schedule_checker).start()
     bot.infinity_polling()
